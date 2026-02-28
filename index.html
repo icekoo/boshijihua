@@ -361,17 +361,25 @@
     if (!cfg || !cfg.projectId) return;
     showSyncLinkUI();
     try {
-      if (!window.firebase || !window.firebase.initializeApp) return;
+      if (!window.firebase || !window.firebase.initializeApp) { setSyncStatus('同步未就绪（请刷新页面）', true); return; }
       try { window.firebase.initializeApp(cfg); } catch (e) { if (!String(e.code || '').match(/already-exists/)) throw e; }
       window.firebaseDb = window.firebase.firestore();
       var roomId = getRoomId();
       location.hash = roomId;
       showSyncLinkUI();
       setSyncStatus('连接中…');
+      var connectTimeout = setTimeout(function() {
+        var el = document.getElementById('syncStatus');
+        if (el && el.textContent.indexOf('连接中') !== -1) {
+          setSyncStatus('同步超时：请检查网络，或到 Firebase 控制台 → Firestore → 规则 为 rooms 添加 allow read, write: if true;', true);
+        }
+      }, 12000);
       window.firebaseDb.collection('rooms').doc(roomId).get().then(function(snap) {
+        clearTimeout(connectTimeout);
         if (snap.exists && snap.data()) loadFromCloud(snap.data());
         else { scheduleCloudSave(); setSyncStatus('已连接'); }
       }).catch(function(err) {
+        clearTimeout(connectTimeout);
         if (isPermissionError(err) && !window._syncRuleHint) { window._syncRuleHint = 1; setSyncStatus('同步失败：请设置 Firestore 规则', true); alert('同步失败：Firestore 权限被拒。请到 Firebase 控制台 → Firestore Database → 规则，添加：\n\nmatch /rooms/{roomId} { allow read, write: if true; }\n\n然后点发布。'); }
         else { setSyncStatus('同步失败：' + ((err && err.message) || '请检查网络'), true); }
         scheduleCloudSave();
@@ -385,7 +393,7 @@
         else if (err) { setSyncStatus('同步失败：' + (err.message || err.code || '未知错误'), true); }
       });
       window.planCloudSave = scheduleCloudSave;
-    } catch (e) {}
+    } catch (e) { setSyncStatus('同步未就绪（请刷新）', true); }
   }
 
   let currentPaperId = null;
