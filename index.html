@@ -51,7 +51,7 @@
     <h1>博士规划</h1>
     <div class="fund-total" id="headerFund">心愿基金：0 元</div>
     <div id="syncLinkWrap" style="display:none;font-size:0.75rem;margin-top:0.35rem;color:rgba(255,255,255,0.9)"></div>
-    <div id="syncStatus" style="display:none;font-size:0.75rem;margin-top:0.2rem;color:#ffeb3b"></div>
+    <div id="syncStatus" style="display:none;font-size:0.8rem;margin-top:0.25rem;color:#ffeb3b"></div>
     <div id="storageHint" style="display:none;font-size:0.8rem;margin-top:0.35rem;color:#ffeb3b"></div>
     <nav class="main">
       <a href="#" data-page="paper" class="active">论文</a>
@@ -296,7 +296,7 @@
   function setSyncStatus(text, isError) {
     var el = document.getElementById('syncStatus');
     if (!el) return;
-    el.style.display = text ? 'block' : 'none';
+    el.style.display = 'block';
     el.textContent = text || '';
     el.style.color = isError ? '#ffcdd2' : '#ffeb3b';
   }
@@ -321,13 +321,16 @@
     }, 1500);
   }
   function getRoomId() {
-    var hash = (location.hash || '').slice(1);
-    if (hash) { _saveLocal(ROOM_KEY, hash); return hash; }
+    var hash = (location.hash || '').slice(1).replace(/^["']|["']$/g, '');
+    if (hash) { try { localStorage.setItem(ROOM_KEY, hash); } catch(e) {} return hash; }
     var id = null;
-    try { id = localStorage.getItem(ROOM_KEY); } catch(e) {}
+    try {
+      id = localStorage.getItem(ROOM_KEY);
+      if (id) { try { id = JSON.parse(id); } catch(e) {} id = String(id).replace(/^["']|["']$/g, ''); }
+    } catch(e) {}
     if (id) return id;
     id = 'r' + Math.random().toString(36).slice(2, 14);
-    _saveLocal(ROOM_KEY, id);
+    try { localStorage.setItem(ROOM_KEY, id); } catch(e) {}
     return id;
   }
   function loadFromCloud(data) {
@@ -342,11 +345,12 @@
     var roomId = getRoomId();
     location.hash = roomId;
     var fullUrl = location.href;
+    setSyncStatus('连接中…');
     syncEl.style.display = 'block';
     syncEl.innerHTML = '<strong style="display:block;margin-bottom:0.25rem">手机/电脑必须用下面完整链接（含 # 后面）打开才能同步。</strong>' +
-      '<a href="' + fullUrl + '" style="color:#ffeb3b;word-break:break-all">' + fullUrl + '</a> ' +
+      '<a href="' + esc(fullUrl) + '" style="color:#ffeb3b;word-break:break-all">' + esc(fullUrl) + '</a> ' +
       '<button type="button" id="copySyncLink" class="btn btn-sm" style="margin-left:0.5rem;background:rgba(255,255,255,0.25);color:#fff;border:none;cursor:pointer">复制链接</button>' +
-      '<span style="display:block;margin-top:0.25rem;font-size:0.7rem;opacity:0.9">若下方显示「同步失败」，请到 Firebase 控制台 → Firestore Database → 规则，为 rooms 添加 allow read, write: if true;</span>';
+      '<div style="margin-top:0.35rem;font-size:0.8rem;opacity:0.95">同步状态见下方一行；若显示「同步失败」请到 Firebase 控制台 → Firestore → 规则，为 rooms 添加 allow read, write: if true;</div>';
     var btn = document.getElementById('copySyncLink');
     if (btn) btn.onclick = function() {
       navigator.clipboard.writeText(fullUrl).then(function() { this.textContent = '已复制'; setTimeout(function() { this.textContent = '复制链接'; }.bind(this), 2000); }.bind(this)).catch(function() { prompt('请手动复制下方链接到手机打开：', fullUrl); });
