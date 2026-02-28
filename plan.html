@@ -50,6 +50,7 @@
   <header>
     <h1>博士规划</h1>
     <div class="fund-total" id="headerFund">心愿基金：0 元</div>
+    <div id="syncLinkWrap" style="display:none;font-size:0.75rem;margin-top:0.35rem;color:rgba(255,255,255,0.9)"></div>
     <div id="storageHint" style="display:none;font-size:0.8rem;margin-top:0.35rem;color:#ffeb3b"></div>
     <nav class="main">
       <a href="#" data-page="paper" class="active">论文</a>
@@ -198,6 +199,13 @@
     </section>
   </div>
 
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.min.js"></script>
+  <script>
+  // 自动同步：在 Firebase 控制台创建项目、启用 Firestore，复制配置填入下方，则手机/电脑打开同一链接即共享数据。
+  window.FIREBASE_CONFIG = null;
+  // 示例：window.FIREBASE_CONFIG = { apiKey: '...', authDomain: 'xxx.firebaseapp.com', projectId: 'xxx', storageBucket: 'xxx.appspot.com', messagingSenderId: '...', appId: '...' };
+  </script>
   <script>
 (function() {
   const P = 'boshijihua_plan_';
@@ -211,6 +219,8 @@
   const PQ_KEY = P + 'projectQ';
   const TIMELINE_KEY = P + 'timeline';
   const EXPENSE_KEY = P + 'expenses';
+  const DATA_KEYS = [PAPERS_KEY, NODES_KEY, RESUME_KEY, LEET_KEY, PROJ_KEY, IQ_KEY, PQ_KEY, TIMELINE_KEY, EXPENSE_KEY];
+  const ROOM_KEY = P + 'roomId';
 
   const NODE_BEFORE = [{ key: 'literature', label: '前期文献整理', links: true }, { key: 'problemModel', label: '问题建模', links: false }];
   const NODE_AFTER = [{ key: 'writeResult', label: '写结果', links: false }, { key: 'writeMethod', label: '写方法', links: false }, { key: 'writeIntro', label: '写引言', links: false }, { key: 'writeAbstract', label: '写摘要', links: false }];
@@ -219,7 +229,8 @@
     try { var key = '__plan_test__'; localStorage.setItem(key, '1'); localStorage.removeItem(key); return true; } catch(e) { return false; }
   }
   function load(k, def) { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : (def !== undefined ? def : (k === PAPERS_KEY || k === LEET_KEY || k === PROJ_KEY || k === IQ_KEY || k === PQ_KEY || k === TIMELINE_KEY || k === EXPENSE_KEY ? [] : {})); } catch(e) { return Array.isArray(def) ? [] : {}; } }
-  function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
+  function _saveLocal(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
+  function save(k, v) { _saveLocal(k, v); if (window.planCloudSave) window.planCloudSave(); }
   function esc(s) { if (s == null) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
   function getNodes(pid) {
@@ -257,6 +268,70 @@
     return INITIAL_FUND + totalRewards() - totalExpenses();
   }
   function refreshFund() { document.getElementById('headerFund').textContent = '心愿基金：' + totalFund() + ' 元'; }
+
+  function fullRefresh() {
+    renderPaperList();
+    renderResume();
+    renderLeetcode();
+    renderProjects();
+    renderIq();
+    renderPq();
+    renderTimeline();
+    renderExpense();
+    refreshFund();
+    if (currentPaperId) { document.getElementById('paperListWrap').style.display = 'none'; document.getElementById('paperDetailWrap').style.display = 'block'; document.getElementById('detailPaperTitle').textContent = (load(PAPERS_KEY).find(function(p){ return p.id === currentPaperId; }) || {}).title || ''; renderPaperDetail(currentPaperId); }
+  }
+
+  var cloudSaveTimer = null;
+  function scheduleCloudSave() {
+    if (!window.firebaseDb) return;
+    if (cloudSaveTimer) clearTimeout(cloudSaveTimer);
+    cloudSaveTimer = setTimeout(function() {
+      cloudSaveTimer = null;
+      var roomId = getRoomId();
+      var data = {};
+      DATA_KEYS.forEach(function(k) { try { var s = localStorage.getItem(k); if (s != null) data[k] = JSON.parse(s); } catch(e) {} });
+      window.firebaseDb.collection('rooms').doc(roomId).set({ data: data, updatedAt: new Date().toISOString() }).catch(function() {});
+    }, 1500);
+  }
+  function getRoomId() {
+    var hash = (location.hash || '').slice(1);
+    if (hash) { _saveLocal(ROOM_KEY, hash); return hash; }
+    var id = null;
+    try { id = localStorage.getItem(ROOM_KEY); } catch(e) {}
+    if (id) return id;
+    id = 'r' + Math.random().toString(36).slice(2, 14);
+    _saveLocal(ROOM_KEY, id);
+    return id;
+  }
+  function loadFromCloud(data) {
+    if (!data || !data.data) return;
+    DATA_KEYS.forEach(function(k) { if (data.data[k] !== undefined) _saveLocal(k, data.data[k]); });
+    fullRefresh();
+  }
+  function initCloudSync() {
+    var cfg = window.FIREBASE_CONFIG;
+    if (!cfg || !cfg.projectId) return;
+    try {
+      if (!window.firebase || !window.firebase.initializeApp) return;
+      window.firebase.initializeApp(cfg);
+      window.firebaseDb = window.firebase.firestore();
+      var roomId = getRoomId();
+      location.hash = roomId;
+      var syncEl = document.getElementById('syncLinkWrap');
+      if (syncEl) { syncEl.style.display = 'block'; syncEl.innerHTML = '手机/电脑打开此链接即自动同步：<br/><a href="' + location.href + '" style="color:#ffeb3b;word-break:break-all">' + location.href + '</a>'; }
+      window.firebaseDb.collection('rooms').doc(roomId).get().then(function(snap) {
+        if (snap.exists && snap.data()) loadFromCloud(snap.data());
+        else scheduleCloudSave();
+      }).catch(function() { scheduleCloudSave(); });
+      window.firebaseDb.collection('rooms').doc(roomId).onSnapshot(function(snap) {
+        if (!snap.exists()) return;
+        var d = snap.data();
+        if (d && d.data) loadFromCloud(d);
+      });
+      window.planCloudSave = scheduleCloudSave;
+    } catch (e) {}
+  }
 
   let currentPaperId = null;
 
@@ -792,6 +867,7 @@
   renderTimeline();
   renderExpense();
   refreshFund();
+  initCloudSync();
 })();
   </script>
 </body>
