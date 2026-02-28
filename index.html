@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>博士规划</title>
+  <style>
+    :root { --bg: #f5f5f5; --card: #fff; --border: #e0e0e0; --primary: #1565c0; --muted: #757575; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; background: var(--bg); color: #212529; line-height: 1.5; }
+    .container { max-width: 800px; margin: 0 auto; padding: 1rem; }
+    header { background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%); color: #fff; padding: 1rem 1.5rem; }
+    header h1 { margin: 0 0 0.25rem; font-size: 1.25rem; }
+    .fund-total { font-size: 1.4rem; font-weight: 700; color: #ffeb3b; }
+    nav.main { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+    nav.main a { color: rgba(255,255,255,0.9); text-decoration: none; padding: 0.4rem 1rem; border-radius: 6px; }
+    nav.main a:hover { background: rgba(255,255,255,0.15); }
+    nav.main a.active { background: rgba(255,255,255,0.25); font-weight: 500; }
+    .card { background: var(--card); border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+    .card h2 { margin: 0 0 0.75rem; font-size: 1.05rem; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); }
+    .tabs button { padding: 0.5rem 1rem; border: none; background: none; cursor: pointer; color: var(--muted); }
+    .tabs button.active { color: var(--primary); font-weight: 600; border-bottom: 2px solid var(--primary); }
+    .btn { display: inline-block; padding: 0.4rem 0.8rem; border-radius: 6px; border: 1px solid var(--border); background: var(--card); cursor: pointer; font-size: 0.9rem; }
+    .btn:hover { background: #eee; }
+    .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
+    .btn-danger { color: #c62828; border-color: #c62828; }
+    ul.list { list-style: none; padding: 0; margin: 0; }
+    ul.list li { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0; border-bottom: 1px solid #f0f0f0; }
+    input[type="checkbox"] { width: 1.1em; height: 1.1em; cursor: pointer; }
+    input[type="text"], textarea, select { padding: 0.4rem 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; width: 100%; }
+    textarea { min-height: 50px; resize: vertical; }
+    label { display: block; margin-bottom: 0.2rem; font-size: 0.85rem; color: #555; }
+    .form-row { margin-bottom: 0.6rem; }
+    .node-row { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.4rem 0; border-bottom: 1px solid #f0f0f0; }
+    .node-row .label { font-weight: 500; min-width: 100px; }
+    .node-row .content { flex: 1; }
+    .sub-list { margin-left: 1rem; padding-left: 0.75rem; border-left: 2px solid #e8e8e8; margin-top: 0.25rem; }
+    .empty-hint { color: var(--muted); font-size: 0.85rem; }
+    .paper-item { cursor: pointer; padding: 0.5rem; border-radius: 6px; }
+    .paper-item:hover { background: #f5f5f5; }
+    section.page { display: none; }
+    section.page.show { display: block; }
+    .tag-list { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem; }
+    .tag { font-size: 0.75rem; padding: 0.2rem 0.5rem; background: #e3f2fd; color: #1565c0; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>博士规划</h1>
+    <div class="fund-total" id="headerFund">心愿基金：0 元</div>
+    <div id="syncLinkWrap" style="display:none;font-size:0.75rem;margin-top:0.35rem;color:rgba(255,255,255,0.9)"></div>
+    <div id="storageHint" style="display:none;font-size:0.8rem;margin-top:0.35rem;color:#ffeb3b"></div>
+    <nav class="main">
+      <a href="#" data-page="paper" class="active">论文</a>
+      <a href="#" data-page="intern">找实习</a>
+      <a href="#" data-page="timeline">时间节点</a>
+      <a href="#" data-page="expense">花销</a>
+    </nav>
+  </header>
+
+  <div class="container">
+    <!-- ========== 论文 ========== -->
+    <section id="pagePaper" class="page show">
+      <div id="paperListWrap">
+        <div class="card">
+          <h2>论文列表</h2>
+          <p class="empty-hint">每完成 1 个进度节点或 1 个实验 = 200 元。</p>
+          <div class="form-row">
+            <label>论文标题</label>
+            <input type="text" id="paperTitle" placeholder="论文题目" />
+          </div>
+          <button class="btn btn-primary" id="paperAdd">新增论文</button>
+          <ul class="list" id="paperList"></ul>
+        </div>
+      </div>
+      <div id="paperDetailWrap" style="display: none;">
+        <p><a href="#" id="paperBack">← 返回论文列表</a></p>
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2 id="detailPaperTitle"></h2>
+            <button class="btn btn-sm btn-danger" id="paperDelete">删除论文</button>
+          </div>
+          <div id="nodeListBeforeExp"></div>
+          <div id="experimentBlock">
+            <div class="node-row"><span class="label">做实验</span><span class="content">子实验列表</span></div>
+            <div class="sub-list">
+              <div class="form-row" style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                <input type="text" id="expName" placeholder="实验名称" style="width:auto;min-width:120px;" />
+                <button class="btn btn-sm btn-primary" id="expAdd">添加实验</button>
+              </div>
+              <ul class="list" id="expList"></ul>
+            </div>
+          </div>
+          <div id="nodeListAfterExp"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 找实习 ========== -->
+    <section id="pageIntern" class="page">
+      <div class="tabs">
+        <button type="button" data-tab="resume" class="active">改简历</button>
+        <button type="button" data-tab="leetcode">刷题</button>
+        <button type="button" data-tab="project">做项目</button>
+        <button type="button" data-tab="iq">面试问题整理</button>
+        <button type="button" data-tab="pq">项目问题整理</button>
+      </div>
+
+      <div id="tabResume" class="tab-pane card">
+        <h2>改简历</h2>
+        <p class="empty-hint">完成一次 = 30 元。</p>
+        <button class="btn btn-primary" id="resumeDone">完成一次改简历</button>
+        <ul class="list" id="resumeList"></ul>
+      </div>
+      <div id="tabLeetcode" class="tab-pane card" style="display:none;">
+        <h2>刷题（Hot 100 等）</h2>
+        <p class="empty-hint">每道题可填链接、要点、标签、答案模板。刷一道 = 30 元。</p>
+        <div class="form-row"><label>题目链接</label><input type="text" id="leetLink" placeholder="题目 URL" /></div>
+        <div class="form-row"><label>题目名称/编号</label><input type="text" id="leetTitle" placeholder="如：LeetCode 1. 两数之和" /></div>
+        <div class="form-row"><label>要点</label><textarea id="leetPoints" placeholder="解题要点、思路"></textarea></div>
+        <div class="form-row"><label>标签/知识点（逗号分隔）</label><input type="text" id="leetTags" placeholder="双指针, 哈希表" /></div>
+        <div class="form-row"><label>答案模板</label><textarea id="leetTemplate" placeholder="代码或文字模板"></textarea></div>
+        <button class="btn btn-primary" id="leetAdd">添加题目</button>
+        <ul class="list" id="leetList"></ul>
+      </div>
+      <div id="tabProject" class="tab-pane card" style="display:none;">
+        <h2>做项目</h2>
+        <p class="empty-hint">自定义节点，完成一个节点 = 30 元；记录更新一次 = 30 元。</p>
+        <div class="form-row"><label>项目名称</label><input type="text" id="projName" placeholder="项目名" /></div>
+        <button class="btn btn-primary" id="projAdd">新增项目</button>
+        <div id="projListWrap"></div>
+      </div>
+      <div id="tabIq" class="tab-pane card" style="display:none;">
+        <h2>面试问题整理</h2>
+        <p class="empty-hint">整理一个 = 30 元。</p>
+        <div class="form-row"><label>问题内容</label><input type="text" id="iqContent" placeholder="面试被问到的问题" /></div>
+        <button class="btn btn-primary" id="iqAdd">添加</button>
+        <ul class="list" id="iqList"></ul>
+      </div>
+      <div id="tabPq" class="tab-pane card" style="display:none;">
+        <h2>项目问题整理</h2>
+        <p class="empty-hint">整理一个 = 30 元。</p>
+        <div class="form-row"><label>问题内容</label><input type="text" id="pqContent" placeholder="讲项目时被问的问题" /></div>
+        <button class="btn btn-primary" id="pqAdd">添加</button>
+        <ul class="list" id="pqList"></ul>
+      </div>
+    </section>
+
+    <!-- ========== 博士重要时间节点规划 ========== -->
+    <section id="pageTimeline" class="page">
+      <div class="card">
+        <h2>博士重要时间节点规划</h2>
+        <p class="empty-hint">时间节点与任务均可自定义添加，每完成 1 个任务 = 400 元。</p>
+        <div class="form-row">
+          <label>时间节点名称</label>
+          <input type="text" id="timelineNodeName" placeholder="如：开题、博资考、答辩" />
+        </div>
+        <div class="form-row">
+          <label>截止 DDL（可选）</label>
+          <input type="text" id="timelineNodeDdl" placeholder="如：2025-06-30 或 6月底前" />
+        </div>
+        <button class="btn btn-primary" id="timelineNodeAdd">添加时间节点</button>
+        <div id="timelineListWrap" style="margin-top: 1rem;"></div>
+      </div>
+    </section>
+
+    <!-- ========== 记录花销 ========== -->
+    <section id="pageExpense" class="page">
+      <div class="card">
+        <h2>记录花销</h2>
+        <p class="empty-hint">心愿基金 = 初始 1000 + 奖励 − 花销。保存时自动记录时间。</p>
+        <div class="form-row">
+          <label>买了什么</label>
+          <input type="text" id="expenseItem" placeholder="如：书籍、课程" />
+        </div>
+        <div class="form-row">
+          <label>花销金额（元）</label>
+          <input type="number" id="expenseAmount" placeholder="0" min="0" step="0.01" />
+        </div>
+        <button class="btn btn-primary" id="expenseSave">保存</button>
+      </div>
+      <div class="card">
+        <h2>查看花费</h2>
+        <div class="tabs" style="margin-bottom:0.5rem">
+          <button type="button" data-view="all" class="active">全部</button>
+          <button type="button" data-view="month">月度</button>
+          <button type="button" data-view="year">年度</button>
+        </div>
+        <div id="expenseFilter" style="display:none;margin-bottom:0.5rem">
+          <label id="expenseFilterLabel"></label>
+          <input type="month" id="expenseMonth" style="width:auto" />
+          <input type="number" id="expenseYear" placeholder="年份" min="2020" max="2030" style="width:100px" />
+        </div>
+        <p id="expenseSummary" style="font-weight:600;margin:0.5rem 0"></p>
+        <ul class="list" id="expenseList"></ul>
+      </div>
+    </section>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.min.js"></script>
+  <script>
+  // 自动同步：在 Firebase 控制台创建项目、启用 Firestore，复制配置填入下方，则手机/电脑打开同一链接即共享数据。
+  // window.FIREBASE_CONFIG = null;
+   window.FIREBASE_CONFIG = {
+      apiKey: "AIzaSyCJKNSYqwRP_4-_voaR186Kx8P6UpZWWv4",
+      authDomain: "boshijihua.firebaseapp.com",
+      projectId: "boshijihua",
+      storageBucket: "boshijihua.firebasestorage.app",
+      messagingSenderId: "317172019802",
+      appId: "1:317172019802:web:6baa2525ea68a6fd919e63",
+      measurementId: "G-BKX0MLQHZW"
+   };
+  // 示例：window.FIREBASE_CONFIG = { apiKey: '...', authDomain: 'xxx.firebaseapp.com', projectId: 'xxx', storageBucket: 'xxx.appspot.com', messagingSenderId: '...', appId: '...' };
+  </script>
+  <script>
+(function() {
+  const P = 'boshijihua_plan_';
+  const INITIAL_FUND = 1000;
+  const PAPERS_KEY = P + 'papers';
+  const NODES_KEY = P + 'paperNodes';
+  const RESUME_KEY = P + 'resume';
+  const LEET_KEY = P + 'leetcode';
+  const PROJ_KEY = P + 'projects';
+  const IQ_KEY = P + 'interviewQ';
+  const PQ_KEY = P + 'projectQ';
+  const TIMELINE_KEY = P + 'timeline';
+  const EXPENSE_KEY = P + 'expenses';
+  const DATA_KEYS = [PAPERS_KEY, NODES_KEY, RESUME_KEY, LEET_KEY, PROJ_KEY, IQ_KEY, PQ_KEY, TIMELINE_KEY, EXPENSE_KEY];
+  const ROOM_KEY = P + 'roomId';
+
+  const NODE_BEFORE = [{ key: 'literature', label: '前期文献整理', links: true }, { key: 'problemModel', label: '问题建模', links: false }];
+  const NODE_AFTER = [{ key: 'writeResult', label: '写结果', links: false }, { key: 'writeMethod', label: '写方法', links: false }, { key: 'writeIntro', label: '写引言', links: false }, { key: 'writeAbstract', label: '写摘要', links: false }];
+
+  function storageAvailable() {
+    try { var key = '__plan_test__'; localStorage.setItem(key, '1'); localStorage.removeItem(key); return true; } catch(e) { return false; }
+  }
+  function load(k, def) { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : (def !== undefined ? def : (k === PAPERS_KEY || k === LEET_KEY || k === PROJ_KEY || k === IQ_KEY || k === PQ_KEY || k === TIMELINE_KEY || k === EXPENSE_KEY ? [] : {})); } catch(e) { return Array.isArray(def) ? [] : {}; } }
+  function _saveLocal(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
+  function save(k, v) { _saveLocal(k, v); if (window.planCloudSave) window.planCloudSave(); }
+  function esc(s) { if (s == null) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+  function getNodes(pid) {
+    const o = load(NODES_KEY);
+    if (!o[pid]) o[pid] = { literature: { done: false, rewarded: false, links: '' }, problemModel: {}, writeResult: {}, writeMethod: {}, writeIntro: {}, writeAbstract: {}, experiments: [] };
+    NODE_AFTER.forEach(n => { if (!o[pid][n.key]) o[pid][n.key] = { done: false, rewarded: false }; });
+    return o[pid];
+  }
+  function setNodes(pid, data) { const o = load(NODES_KEY); o[pid] = data; save(NODES_KEY, o); }
+
+  function totalRewards() {
+    let t = 0;
+    load(PAPERS_KEY).forEach(p => {
+      const n = getNodes(p.id);
+      [...NODE_BEFORE, ...NODE_AFTER].forEach(({ key }) => { if (n[key] && n[key].done && n[key].rewarded) t += 200; });
+      (n.experiments || []).forEach(e => { if (e.done && e.rewarded) t += 200; });
+    });
+    (load(RESUME_KEY, [])).forEach(() => t += 30);
+    (load(LEET_KEY)).filter(x => x.done && x.rewarded).forEach(() => t += 30);
+    load(PROJ_KEY).forEach(proj => {
+      (proj.nodes || []).forEach(n => { if (n.done && n.rewarded) t += 30; });
+      t += (proj.updateRewarded || 0) * 30;
+    });
+    (load(IQ_KEY)).filter(x => x.sorted && x.rewarded).forEach(() => t += 30);
+    (load(PQ_KEY)).filter(x => x.sorted && x.rewarded).forEach(() => t += 30);
+    load(TIMELINE_KEY).forEach(node => {
+      (node.tasks || []).forEach(task => { if (task.done && task.rewarded) t += 400; });
+    });
+    return t;
+  }
+  function totalExpenses() {
+    return (load(EXPENSE_KEY)).reduce((sum, x) => sum + (parseFloat(x.amount) || 0), 0);
+  }
+  function totalFund() {
+    return INITIAL_FUND + totalRewards() - totalExpenses();
+  }
+  function refreshFund() { document.getElementById('headerFund').textContent = '心愿基金：' + totalFund() + ' 元'; }
+
+  function fullRefresh() {
+    renderPaperList();
+    renderResume();
+    renderLeetcode();
+    renderProjects();
+    renderIq();
+    renderPq();
+    renderTimeline();
+    renderExpense();
+    refreshFund();
+    if (currentPaperId) { document.getElementById('paperListWrap').style.display = 'none'; document.getElementById('paperDetailWrap').style.display = 'block'; document.getElementById('detailPaperTitle').textContent = (load(PAPERS_KEY).find(function(p){ return p.id === currentPaperId; }) || {}).title || ''; renderPaperDetail(currentPaperId); }
+  }
+
+  var cloudSaveTimer = null;
+  function scheduleCloudSave() {
+    if (!window.firebaseDb) return;
+    if (cloudSaveTimer) clearTimeout(cloudSaveTimer);
+    cloudSaveTimer = setTimeout(function() {
+      cloudSaveTimer = null;
+      var roomId = getRoomId();
+      var data = {};
+      DATA_KEYS.forEach(function(k) { try { var s = localStorage.getItem(k); if (s != null) data[k] = JSON.parse(s); } catch(e) {} });
+      window.firebaseDb.collection('rooms').doc(roomId).set({ data: data, updatedAt: new Date().toISOString() }).catch(function() {});
+    }, 1500);
+  }
+  function getRoomId() {
+    var hash = (location.hash || '').slice(1);
+    if (hash) { _saveLocal(ROOM_KEY, hash); return hash; }
+    var id = null;
+    try { id = localStorage.getItem(ROOM_KEY); } catch(e) {}
+    if (id) return id;
+    id = 'r' + Math.random().toString(36).slice(2, 14);
+    _saveLocal(ROOM_KEY, id);
+    return id;
+  }
+  function loadFromCloud(data) {
+    if (!data || !data.data) return;
+    DATA_KEYS.forEach(function(k) { if (data.data[k] !== undefined) _saveLocal(k, data.data[k]); });
+    fullRefresh();
+  }
+  function initCloudSync() {
+    var cfg = window.FIREBASE_CONFIG;
+    if (!cfg || !cfg.projectId) return;
+    try {
+      if (!window.firebase || !window.firebase.initializeApp) return;
+      window.firebase.initializeApp(cfg);
+      window.firebaseDb = window.firebase.firestore();
+      var roomId = getRoomId();
+      location.hash = roomId;
+      var syncEl = document.getElementById('syncLinkWrap');
+      if (syncEl) { syncEl.style.display = 'block'; syncEl.innerHTML = '手机/电脑打开此链接即自动同步：<br/><a href="' + location.href + '" style="color:#ffeb3b;word-break:break-all">' + location.href + '</a>'; }
+      window.firebaseDb.collection('rooms').doc(roomId).get().then(function(snap) {
+        if (snap.exists && snap.data()) loadFromCloud(snap.data());
+        else scheduleCloudSave();
+      }).catch(function() { scheduleCloudSave(); });
+      window.firebaseDb.collection('rooms').doc(roomId).onSnapshot(function(snap) {
+        if (!snap.exists()) return;
+        var d = snap.data();
+        if (d && d.data) loadFromCloud(d);
+      });
+      window.planCloudSave = scheduleCloudSave;
+    } catch (e) {}
+  }
+
+  let currentPaperId = null;
+
+  // ----- 论文 -----
+  function renderPaperList() {
+    const list = load(PAPERS_KEY);
+    const ul = document.getElementById('paperList');
+    ul.innerHTML = list.map(p => '<li class="paper-item" data-id="' + p.id + '">' + esc(p.title) + '</li>').join('');
+    ul.querySelectorAll('.paper-item').forEach(el => el.addEventListener('click', () => openPaper(el.dataset.id)));
+  }
+  function openPaper(id) {
+    const list = load(PAPERS_KEY);
+    const p = list.find(x => x.id === id);
+    if (!p) return;
+    currentPaperId = id;
+    document.getElementById('paperListWrap').style.display = 'none';
+    document.getElementById('paperDetailWrap').style.display = 'block';
+    document.getElementById('detailPaperTitle').textContent = p.title;
+    renderPaperDetail(id);
+    refreshFund();
+  }
+  function renderNodeRows(n, keys) {
+    return keys.map(({ key, label, links }) => {
+      const node = n[key] || {};
+      const done = node.done ? ' checked' : '';
+      const rew = node.rewarded ? ' <span style="color:var(--muted);font-size:0.8rem">✓已发奖</span>' : '';
+      let ext = '';
+      if (links && node.links !== undefined) ext = '<div class="form-row"><textarea data-node="' + key + '" data-links placeholder="链接">' + esc(node.links || '') + '</textarea></div>';
+      return '<div class="node-row" data-node="' + key + '"><input type="checkbox" ' + done + ' data-done /><span class="label">' + label + '</span><span class="content">' + rew + ext + '</span></div>';
+    }).join('');
+  }
+  function bindNodeEvents(container, pid) {
+    if (!container) return;
+    container.querySelectorAll('[data-done]').forEach(cb => {
+      cb.addEventListener('change', function() {
+        const row = this.closest('.node-row');
+        const key = row.dataset.node;
+        const n = getNodes(pid);
+        if (!n[key]) n[key] = { done: false, rewarded: false };
+        n[key].done = this.checked;
+        if (this.checked && !n[key].rewarded) n[key].rewarded = true;
+        setNodes(pid, n);
+        renderPaperDetail(pid);
+        refreshFund();
+      });
+    });
+    container.querySelectorAll('textarea[data-links]').forEach(ta => {
+      ta.addEventListener('blur', function() {
+        const n = getNodes(pid);
+        if (n[this.dataset.node]) n[this.dataset.node].links = this.value;
+        setNodes(pid, n);
+      });
+    });
+  }
+  function renderPaperDetail(pid) {
+    const n = getNodes(pid);
+    const beforeEl = document.getElementById('nodeListBeforeExp');
+    const afterEl = document.getElementById('nodeListAfterExp');
+    beforeEl.innerHTML = renderNodeRows(n, NODE_BEFORE);
+    afterEl.innerHTML = renderNodeRows(n, NODE_AFTER);
+    bindNodeEvents(beforeEl, pid);
+    bindNodeEvents(afterEl, pid);
+    const exps = n.experiments || [];
+    document.getElementById('expList').innerHTML = exps.map(e => {
+      const done = e.done ? ' checked' : '';
+      const rew = e.rewarded ? ' ✓奖' : '';
+      return '<li><input type="checkbox" ' + done + ' data-eid="' + e.id + '" data-edone /><span style="flex:1">' + esc(e.name) + rew + '</span><button class="btn btn-sm btn-danger" data-eid="' + e.id + '" data-edel>删</button></li>';
+    }).join('');
+    document.getElementById('expList').querySelectorAll('[data-edone]').forEach(cb => {
+      cb.addEventListener('change', function() {
+        const n = getNodes(pid);
+        const e = (n.experiments || []).find(x => x.id === this.dataset.eid);
+        if (e) { e.done = this.checked; if (this.checked && !e.rewarded) e.rewarded = true; }
+        setNodes(pid, n);
+        renderPaperDetail(pid);
+        refreshFund();
+      });
+    });
+    document.getElementById('expList').querySelectorAll('[data-edel]').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const n = getNodes(pid);
+        n.experiments = (n.experiments || []).filter(x => x.id !== this.dataset.eid);
+        setNodes(pid, n);
+        renderPaperDetail(pid);
+        refreshFund();
+      });
+    });
+  }
+  document.getElementById('paperAdd').onclick = function() {
+    const title = document.getElementById('paperTitle').value.trim();
+    if (!title) return;
+    const list = load(PAPERS_KEY);
+    list.push({ id: 'p' + Date.now(), title });
+    save(PAPERS_KEY, list);
+    document.getElementById('paperTitle').value = '';
+    renderPaperList();
+    refreshFund();
+  };
+  document.getElementById('paperBack').onclick = function(e) {
+    e.preventDefault();
+    document.getElementById('paperListWrap').style.display = 'block';
+    document.getElementById('paperDetailWrap').style.display = 'none';
+    currentPaperId = null;
+    renderPaperList();
+  };
+  document.getElementById('paperDelete').onclick = function() {
+    if (!currentPaperId || !confirm('删除该论文？')) return;
+    save(PAPERS_KEY, load(PAPERS_KEY).filter(p => p.id !== currentPaperId));
+    const o = load(NODES_KEY);
+    delete o[currentPaperId];
+    save(NODES_KEY, o);
+    currentPaperId = null;
+    document.getElementById('paperListWrap').style.display = 'block';
+    document.getElementById('paperDetailWrap').style.display = 'none';
+    renderPaperList();
+    refreshFund();
+  };
+  document.getElementById('expAdd').onclick = function() {
+    if (!currentPaperId) return;
+    const name = document.getElementById('expName').value.trim();
+    if (!name) return;
+    const n = getNodes(currentPaperId);
+    n.experiments = n.experiments || [];
+    n.experiments.push({ id: 'e' + Date.now(), name, done: false, rewarded: false });
+    setNodes(currentPaperId, n);
+    document.getElementById('expName').value = '';
+    renderPaperDetail(currentPaperId);
+    refreshFund();
+  };
+
+  // ----- 找实习：改简历 -----
+  function renderResume() {
+    const list = load(RESUME_KEY, []);
+    document.getElementById('resumeList').innerHTML = list.map((x, i) => '<li>第 ' + (i + 1) + ' 次 ✓ 30元</li>').join('');
+  }
+  document.getElementById('resumeDone').onclick = function() {
+    const list = load(RESUME_KEY, []);
+    list.push({ t: Date.now() });
+    save(RESUME_KEY, list);
+    renderResume();
+    refreshFund();
+  };
+
+  // ----- 找实习：刷题 -----
+  const LEET_TAG_OPTIONS = '双指针,哈希表,数组,链表,栈,队列,二分,回溯,贪心,DP,二叉树,图,字符串'.split(',');
+  function renderLeetcode() {
+    const list = load(LEET_KEY);
+    document.getElementById('leetList').innerHTML = list.map(x => {
+      const done = x.done ? ' checked' : '';
+      const rew = x.rewarded ? ' ✓30元' : '';
+      const tags = (x.tags || []).length ? '<div class="tag-list">' + (x.tags || []).map(t => '<span class="tag">' + esc(t) + '</span>').join('') + '</div>' : '';
+      return '<li><input type="checkbox" ' + done + ' data-lid="' + x.id + '" data-ldone /><span style="flex:1">' + esc(x.title || x.link) + rew + tags + '</span><button class="btn btn-sm btn-danger" data-lid="' + x.id + '" data-ldel>删</button></li>';
+    }).join('');
+    document.getElementById('leetList').querySelectorAll('[data-ldone]').forEach(cb => {
+      cb.addEventListener('change', function() {
+        const list = load(LEET_KEY);
+        const i = list.findIndex(x => x.id === this.dataset.lid);
+        if (i >= 0) { list[i].done = this.checked; if (this.checked && !list[i].rewarded) list[i].rewarded = true; }
+        save(LEET_KEY, list);
+        renderLeetcode();
+        refreshFund();
+      });
+    });
+    document.getElementById('leetList').querySelectorAll('[data-ldel]').forEach(btn => {
+      btn.addEventListener('click', function() {
+        save(LEET_KEY, load(LEET_KEY).filter(x => x.id !== this.dataset.lid));
+        renderLeetcode();
+        refreshFund();
+      });
+    });
+  }
+  document.getElementById('leetAdd').onclick = function() {
+    const link = document.getElementById('leetLink').value.trim();
+    const title = document.getElementById('leetTitle').value.trim();
+    const tagsStr = document.getElementById('leetTags').value.trim();
+    if (!link && !title) return;
+    const list = load(LEET_KEY);
+    list.push({
+      id: 'l' + Date.now(),
+      link,
+      title: title || link,
+      points: document.getElementById('leetPoints').value.trim(),
+      tags: tagsStr ? tagsStr.split(/[,，]/).map(t => t.trim()).filter(Boolean) : [],
+      template: document.getElementById('leetTemplate').value.trim(),
+      done: false,
+      rewarded: false
+    });
+    save(LEET_KEY, list);
+    document.getElementById('leetLink').value = document.getElementById('leetTitle').value = document.getElementById('leetPoints').value = document.getElementById('leetTags').value = document.getElementById('leetTemplate').value = '';
+    renderLeetcode();
+    refreshFund();
+  };
+
+  // ----- 找实习：做项目 -----
+  function renderProjects() {
+    const list = load(PROJ_KEY);
+    const wrap = document.getElementById('projListWrap');
+    wrap.innerHTML = list.map(proj => {
+      const nodes = proj.nodes || [];
+      const nodesHtml = nodes.map(nd => {
+        const done = nd.done ? ' checked' : '';
+        const rew = nd.rewarded ? ' ✓30' : '';
+        return '<li><input type="checkbox" ' + done + ' data-pid="' + proj.id + '" data-nid="' + nd.id + '" data-ndone /><span style="flex:1">' + esc(nd.name) + rew + '</span><button class="btn btn-sm btn-danger" data-pid="' + proj.id + '" data-nid="' + nd.id + '" data-ndel>删</button></li>';
+      }).join('');
+      const updateBtn = '<button class="btn btn-sm btn-primary" data-pid="' + proj.id + '" data-update>记录更新 +30元</button>';
+      return '<div class="card" style="margin-top:0.5rem;"><h3 style="margin:0 0 0.5rem">' + esc(proj.name) + '</h3>' + updateBtn + '<div class="form-row" style="display:flex;gap:0.5rem;margin-top:0.5rem"><input type="text" data-pid="' + proj.id + '" data-newnode placeholder="新节点名称" style="width:auto;flex:1" /><button class="btn btn-sm btn-primary" data-pid="' + proj.id + '" data-addnode>添加节点</button></div><ul class="list">' + nodesHtml + '</ul></div>';
+    }).join('');
+    wrap.querySelectorAll('[data-ndone]').forEach(cb => {
+      cb.addEventListener('change', function() {
+        const list = load(PROJ_KEY);
+        const proj = list.find(p => p.id === this.dataset.pid);
+        const nd = (proj.nodes || []).find(n => n.id === this.dataset.nid);
+        if (nd) { nd.done = this.checked; if (this.checked && !nd.rewarded) nd.rewarded = true; }
+        save(PROJ_KEY, list);
+        renderProjects();
+        refreshFund();
+      });
+    });
+    wrap.querySelectorAll('[data-ndel]').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const list = load(PROJ_KEY);
+        const proj = list.find(p => p.id === this.dataset.pid);
+        if (proj) proj.nodes = (proj.nodes || []).filter(n => n.id !== this.dataset.nid);
+        save(PROJ_KEY, list);
+        renderProjects();
+        refreshFund();
+      });
+    });
+    wrap.querySelectorAll('[data-addnode]').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const pid = this.dataset.pid;
+        const card = this.closest('.card');
+        const input = card && card.querySelector('input[data-newnode]');
+        const name = input && input.value.trim();
+        if (!name) return;
+        const list = load(PROJ_KEY);
+        const proj = list.find(p => p.id === pid);
+        if (proj) { proj.nodes = proj.nodes || []; proj.nodes.push({ id: 'n' + Date.now(), name, done: false, rewarded: false }); }
+        save(PROJ_KEY, list);
+        input.value = '';
+        renderProjects();
+        refreshFund();
+      });
+    });
+    wrap.querySelectorAll('[data-update]').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const list = load(PROJ_KEY);
+        const proj = list.find(p => p.id === this.dataset.pid);
+        if (proj) { proj.updateRewarded = (proj.updateRewarded || 0) + 1; }
+        save(PROJ_KEY, list);
+        renderProjects();
+        refreshFund();
+      });
+    });
+  }
+  document.getElementById('projAdd').onclick = function() {
+    const name = document.getElementById('projName').value.trim();
+    if (!name) return;
+    const list = load(PROJ_KEY);
+    list.push({ id: 'pr' + Date.now(), name, nodes: [], updateRewarded: 0 });
+    save(PROJ_KEY, list);
+    document.getElementById('projName').value = '';
+    renderProjects();
+    refreshFund();
+  };
+
+  // ----- 找实习：面试问题 / 项目问题 -----
+  function renderIq() {
+    const list = load(IQ_KEY);
+    document.getElementById('iqList').innerHTML = list.map(x => {
+      const sorted = x.sorted ? ' checked' : '';
+      const rew = x.rewarded ? ' ✓30元' : '';
+      return '<li><input type="checkbox" ' + sorted + ' data-iid="' + x.id + '" data-isorted /><span style="flex:1">' + esc(x.content) + rew + '</span><button class="btn btn-sm btn-danger" data-iid="' + x.id + '" data-idel>删</button></li>';
+    }).join('');
+    document.getElementById('iqList').querySelectorAll('[data-isorted]').forEach(cb => {
+      cb.addEventListener('change', function() {
+        const list = load(IQ_KEY);
+        const i = list.findIndex(x => x.id === this.dataset.iid);
+        if (i >= 0) { list[i].sorted = this.checked; if (this.checked && !list[i].rewarded) list[i].rewarded = true; }
+        save(IQ_KEY, list);
+        renderIq();
+        refreshFund();
+      });
+    });
+    document.getElementById('iqList').querySelectorAll('[data-idel]').forEach(btn => {
+      btn.addEventListener('click', function() {
+        save(IQ_KEY, load(IQ_KEY).filter(x => x.id !== this.dataset.iid));
+        renderIq();
+        refreshFund();
+      });
+    });
+  }
+  document.getElementById('iqAdd').onclick = function() {
+    const content = document.getElementById('iqContent').value.trim();
+    if (!content) return;
+    const list = load(IQ_KEY);
+    list.push({ id: 'iq' + Date.now(), content, sorted: false, rewarded: false });
+    save(IQ_KEY, list);
+    document.getElementById('iqContent').value = '';
+    renderIq();
+    refreshFund();
+  };
+  function renderPq() {
+    const list = load(PQ_KEY);
+    document.getElementById('pqList').innerHTML = list.map(x => {
+      const sorted = x.sorted ? ' checked' : '';
+      const rew = x.rewarded ? ' ✓30元' : '';
+      return '<li><input type="checkbox" ' + sorted + ' data-qid="' + x.id + '" data-qsorted /><span style="flex:1">' + esc(x.content) + rew + '</span><button class="btn btn-sm btn-danger" data-qid="' + x.id + '" data-qdel>删</button></li>';
+    }).join('');
+    document.getElementById('pqList').querySelectorAll('[data-qsorted]').forEach(cb => {
+      cb.addEventListener('change', function() {
+        const list = load(PQ_KEY);
+        const i = list.findIndex(x => x.id === this.dataset.qid);
+        if (i >= 0) { list[i].sorted = this.checked; if (this.checked && !list[i].rewarded) list[i].rewarded = true; }
+        save(PQ_KEY, list);
+        renderPq();
+        refreshFund();
+      });
+    });
+    document.getElementById('pqList').querySelectorAll('[data-qdel]').forEach(btn => {
+      btn.addEventListener('click', function() {
+        save(PQ_KEY, load(PQ_KEY).filter(x => x.id !== this.dataset.qid));
+        renderPq();
+        refreshFund();
+      });
+    });
+  }
+  document.getElementById('pqAdd').onclick = function() {
+    const content = document.getElementById('pqContent').value.trim();
+    if (!content) return;
+    const list = load(PQ_KEY);
+    list.push({ id: 'pq' + Date.now(), content, sorted: false, rewarded: false });
+    save(PQ_KEY, list);
+    document.getElementById('pqContent').value = '';
+    renderPq();
+    refreshFund();
+  };
+
+  // ----- 博士重要时间节点规划 -----
+  function renderTimeline() {
+    const list = load(TIMELINE_KEY);
+    const wrap = document.getElementById('timelineListWrap');
+    wrap.innerHTML = list.map(node => {
+      const tasks = node.tasks || [];
+      const ddlText = node.ddl ? ' <span style="color:var(--muted);font-size:0.85rem">DDL: ' + esc(node.ddl) + '</span>' : '';
+      const tasksHtml = tasks.map(t => {
+        const done = t.done ? ' checked' : '';
+        const rew = t.rewarded ? ' ✓400元' : '';
+        const tDdl = t.ddl ? ' <span style="color:var(--muted);font-size:0.8rem">DDL: ' + esc(t.ddl) + '</span>' : '';
+        return '<li><input type="checkbox" ' + done + ' data-tid="' + t.id + '" data-nid="' + node.id + '" data-tdone /><span style="flex:1">' + esc(t.name) + tDdl + rew + '</span><button class="btn btn-sm btn-danger" data-tid="' + t.id + '" data-nid="' + node.id + '" data-tdel>删</button></li>';
+      }).join('');
+      return '<div class="card" style="margin-top:0.5rem"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;flex-wrap:wrap;gap:0.35rem"><h3 style="margin:0">' + esc(node.name) + ddlText + '</h3><button class="btn btn-sm btn-danger" data-nid="' + node.id + '" data-nodedel>删节点</button></div><div class="form-row" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center"><input type="text" data-nid="' + node.id + '" data-newtask placeholder="新任务名称" style="flex:1;min-width:120px" /><input type="text" data-nid="' + node.id + '" data-newtaskddl placeholder="任务 DDL（可选）" style="width:140px" /><button class="btn btn-sm btn-primary" data-nid="' + node.id + '" data-taskadd>添加任务</button></div><ul class="list">' + tasksHtml + '</ul></div>';
+    }).join('');
+    wrap.querySelectorAll('[data-tdone]').forEach(cb => {
+      cb.addEventListener('change', function() {
+        const list = load(TIMELINE_KEY);
+        const node = list.find(n => n.id === this.dataset.nid);
+        const task = (node.tasks || []).find(t => t.id === this.dataset.tid);
+        if (task) { task.done = this.checked; if (this.checked && !task.rewarded) task.rewarded = true; }
+        save(TIMELINE_KEY, list);
+        renderTimeline();
+        refreshFund();
+      });
+    });
+    wrap.querySelectorAll('[data-tdel]').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const list = load(TIMELINE_KEY);
+        const node = list.find(n => n.id === this.dataset.nid);
+        if (node) node.tasks = (node.tasks || []).filter(t => t.id !== this.dataset.tid);
+        save(TIMELINE_KEY, list);
+        renderTimeline();
+        refreshFund();
+      });
+    });
+    wrap.querySelectorAll('[data-taskadd]').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const nid = this.dataset.nid;
+        const card = this.closest('.card');
+        const input = card && card.querySelector('input[data-newtask]');
+        const ddlInput = card && card.querySelector('input[data-newtaskddl]');
+        const name = input && input.value.trim();
+        if (!name) return;
+        const ddl = ddlInput && ddlInput.value.trim();
+        const list = load(TIMELINE_KEY);
+        const node = list.find(n => n.id === nid);
+        if (node) { node.tasks = node.tasks || []; node.tasks.push({ id: 't' + Date.now(), name, ddl: ddl || '', done: false, rewarded: false }); }
+        save(TIMELINE_KEY, list);
+        if (input) input.value = '';
+        if (ddlInput) ddlInput.value = '';
+        renderTimeline();
+        refreshFund();
+      });
+    });
+    wrap.querySelectorAll('[data-nodedel]').forEach(btn => {
+      btn.addEventListener('click', function() {
+        if (!confirm('删除该时间节点及其全部任务？')) return;
+        save(TIMELINE_KEY, load(TIMELINE_KEY).filter(n => n.id !== this.dataset.nid));
+        renderTimeline();
+        refreshFund();
+      });
+    });
+  }
+  document.getElementById('timelineNodeAdd').onclick = function() {
+    const name = document.getElementById('timelineNodeName').value.trim();
+    if (!name) return;
+    const ddl = document.getElementById('timelineNodeDdl').value.trim();
+    const list = load(TIMELINE_KEY);
+    list.push({ id: 'tn' + Date.now(), name, ddl: ddl || '', tasks: [] });
+    save(TIMELINE_KEY, list);
+    document.getElementById('timelineNodeName').value = '';
+    document.getElementById('timelineNodeDdl').value = '';
+    renderTimeline();
+    refreshFund();
+  };
+
+  // ----- 记录花销 -----
+  function getExpenseList() {
+    return load(EXPENSE_KEY).slice().sort((a, b) => (b.time || '').localeCompare(a.time || ''));
+  }
+  function renderExpense() {
+    var view = document.querySelector('#pageExpense .tabs button.active');
+    view = view ? view.dataset.view : 'all';
+    var list = getExpenseList();
+    var filterEl = document.getElementById('expenseFilter');
+    var monthEl = document.getElementById('expenseMonth');
+    var yearEl = document.getElementById('expenseYear');
+    var now = new Date();
+    if (view === 'month') {
+      filterEl.style.display = 'block';
+      document.getElementById('expenseFilterLabel').textContent = '选择月份：';
+      yearEl.style.display = 'none';
+      monthEl.style.display = 'inline-block';
+      if (!monthEl.value) monthEl.value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+      var ym = monthEl.value;
+      list = list.filter(x => (x.time || '').substring(0, 7) === ym);
+    } else if (view === 'year') {
+      filterEl.style.display = 'block';
+      document.getElementById('expenseFilterLabel').textContent = '选择年份：';
+      monthEl.style.display = 'none';
+      yearEl.style.display = 'inline-block';
+      if (!yearEl.value) yearEl.value = now.getFullYear();
+      var y = String(yearEl.value);
+      list = list.filter(x => (x.time || '').substring(0, 4) === y);
+    } else {
+      filterEl.style.display = 'none';
+    }
+    var total = list.reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+    document.getElementById('expenseSummary').textContent = (view === 'all' ? '全部' : view === 'month' ? '月度' : '年度') + '花费合计：' + total.toFixed(2) + ' 元';
+    document.getElementById('expenseList').innerHTML = list.map(x => {
+      var timeStr = x.time ? new Date(x.time).toLocaleString('zh-CN') : '';
+      return '<li><span style="flex:1">' + esc(x.item || '') + ' — ' + (parseFloat(x.amount) || 0) + ' 元</span><span style="font-size:0.85rem;color:var(--muted)">' + timeStr + '</span><button class="btn btn-sm btn-danger" data-exid="' + x.id + '" data-expdel>删</button></li>';
+    }).join('');
+    document.getElementById('expenseList').querySelectorAll('[data-expdel]').forEach(btn => {
+      btn.addEventListener('click', function() {
+        save(EXPENSE_KEY, load(EXPENSE_KEY).filter(e => e.id !== this.dataset.exid));
+        renderExpense();
+        refreshFund();
+      });
+    });
+  }
+  document.getElementById('expenseSave').onclick = function() {
+    var item = document.getElementById('expenseItem').value.trim();
+    var amount = parseFloat(document.getElementById('expenseAmount').value);
+    if (!item || isNaN(amount) || amount < 0) return;
+    var list = load(EXPENSE_KEY);
+    list.push({ id: 'ex' + Date.now(), item, amount, time: new Date().toISOString() });
+    save(EXPENSE_KEY, list);
+    document.getElementById('expenseItem').value = '';
+    document.getElementById('expenseAmount').value = '';
+    renderExpense();
+    refreshFund();
+  };
+  document.querySelectorAll('#pageExpense .tabs button').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#pageExpense .tabs button').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      renderExpense();
+    });
+  });
+  document.getElementById('expenseMonth').addEventListener('change', renderExpense);
+  document.getElementById('expenseYear').addEventListener('input', renderExpense);
+
+  // ----- 导航 -----
+  document.querySelectorAll('nav.main a[data-page]').forEach(a => {
+    a.addEventListener('click', function(e) {
+      e.preventDefault();
+      document.querySelectorAll('nav.main a').forEach(x => x.classList.remove('active'));
+      this.classList.add('active');
+      document.querySelectorAll('.container section.page').forEach(s => s.classList.remove('show'));
+      var pageMap = { paper: 'Paper', intern: 'Intern', timeline: 'Timeline', expense: 'Expense' };
+      var pageId = pageMap[this.dataset.page] || 'Paper';
+      document.getElementById('page' + pageId).classList.add('show');
+      if (this.dataset.page === 'expense') renderExpense();
+      if (this.dataset.page === 'intern') {
+        document.querySelectorAll('#pageIntern .tab-pane').forEach(p => p.style.display = 'none');
+        document.getElementById('tabResume').style.display = 'block';
+        document.querySelectorAll('#pageIntern .tabs button').forEach(b => b.classList.remove('active'));
+        document.querySelector('#pageIntern .tabs button[data-tab="resume"]').classList.add('active');
+      }
+    });
+  });
+  document.querySelectorAll('#pageIntern .tabs button').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#pageIntern .tabs button').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      document.querySelectorAll('#pageIntern .tab-pane').forEach(p => p.style.display = 'none');
+      const tid = 'tab' + this.dataset.tab.charAt(0).toUpperCase() + this.dataset.tab.slice(1);
+      const el = document.getElementById(tid);
+      if (el) el.style.display = 'block';
+    });
+  });
+
+  // ----- init：检测本地缓存是否可用（手机/PC 均会缓存） -----
+  (function() {
+    var el = document.getElementById('storageHint');
+    if (!el) return;
+    if (storageAvailable()) {
+      el.textContent = '数据已本地缓存，手机/PC 打开均会保留';
+      el.style.display = 'block';
+      setTimeout(function() { el.style.display = 'none'; }, 3000);
+    } else {
+      el.textContent = '当前环境可能无法保存数据（如无痕模式），请使用正常模式打开';
+      el.style.display = 'block';
+    }
+  })();
+
+  renderPaperList();
+  renderResume();
+  renderLeetcode();
+  renderProjects();
+  renderIq();
+  renderPq();
+  renderTimeline();
+  renderExpense();
+  refreshFund();
+  initCloudSync();
+})();
+  </script>
+</body>
+</html>
