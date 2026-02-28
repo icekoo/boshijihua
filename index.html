@@ -51,6 +51,7 @@
     <h1>博士规划</h1>
     <div class="fund-total" id="headerFund">心愿基金：0 元</div>
     <div id="syncLinkWrap" style="display:none;font-size:0.75rem;margin-top:0.35rem;color:rgba(255,255,255,0.9)"></div>
+    <div id="syncStatus" style="display:none;font-size:0.75rem;margin-top:0.2rem;color:#ffeb3b"></div>
     <div id="storageHint" style="display:none;font-size:0.8rem;margin-top:0.35rem;color:#ffeb3b"></div>
     <nav class="main">
       <a href="#" data-page="paper" class="active">论文</a>
@@ -292,6 +293,19 @@
   }
 
   var cloudSaveTimer = null;
+  function setSyncStatus(text, isError) {
+    var el = document.getElementById('syncStatus');
+    if (!el) return;
+    el.style.display = text ? 'block' : 'none';
+    el.textContent = text || '';
+    el.style.color = isError ? '#ffcdd2' : '#ffeb3b';
+  }
+  function isPermissionError(err) {
+    if (!err) return false;
+    var msg = String(err.message || '');
+    var code = String(err.code || '');
+    return (code === 'permission-denied' || msg.indexOf('permission') !== -1 || msg.indexOf('Permission') !== -1);
+  }
   function scheduleCloudSave() {
     if (!window.firebaseDb) return;
     if (cloudSaveTimer) clearTimeout(cloudSaveTimer);
@@ -300,8 +314,9 @@
       var roomId = getRoomId();
       var data = {};
       DATA_KEYS.forEach(function(k) { try { var s = localStorage.getItem(k); if (s != null) data[k] = JSON.parse(s); } catch(e) {} });
-      window.firebaseDb.collection('rooms').doc(roomId).set({ data: data, updatedAt: new Date().toISOString() }).catch(function(err) {
-        if (err && String(err.message || '').indexOf('permission') !== -1 && !window._syncRuleHint) { window._syncRuleHint = 1; alert('同步失败：Firestore 权限被拒。请到 Firebase 控制台 → Firestore Database → 规则，添加：\n\nmatch /rooms/{roomId} { allow read, write: if true; }\n\n然后点发布。'); }
+      window.firebaseDb.collection('rooms').doc(roomId).set({ data: data, updatedAt: new Date().toISOString() }).then(function() { setSyncStatus('已连接（已上传）'); }).catch(function(err) {
+        if (isPermissionError(err) && !window._syncRuleHint) { window._syncRuleHint = 1; setSyncStatus('同步失败：请设置 Firestore 规则', true); alert('同步失败：Firestore 权限被拒。请到 Firebase 控制台 → Firestore Database → 规则，添加：\n\nmatch /rooms/{roomId} { allow read, write: if true; }\n\n然后点发布。'); }
+        else { setSyncStatus('同步失败：' + ((err && err.message) || '网络错误'), true); }
       });
     }, 1500);
   }
@@ -319,6 +334,7 @@
     if (!data || !data.data) return;
     DATA_KEYS.forEach(function(k) { if (data.data[k] !== undefined) _saveLocal(k, data.data[k]); });
     fullRefresh();
+    setSyncStatus('已连接（已从云端同步）');
   }
   function showSyncLinkUI() {
     var syncEl = document.getElementById('syncLinkWrap');
@@ -329,7 +345,8 @@
     syncEl.style.display = 'block';
     syncEl.innerHTML = '<strong style="display:block;margin-bottom:0.25rem">手机/电脑必须用下面完整链接（含 # 后面）打开才能同步。</strong>' +
       '<a href="' + fullUrl + '" style="color:#ffeb3b;word-break:break-all">' + fullUrl + '</a> ' +
-      '<button type="button" id="copySyncLink" class="btn btn-sm" style="margin-left:0.5rem;background:rgba(255,255,255,0.25);color:#fff;border:none;cursor:pointer">复制链接</button>';
+      '<button type="button" id="copySyncLink" class="btn btn-sm" style="margin-left:0.5rem;background:rgba(255,255,255,0.25);color:#fff;border:none;cursor:pointer">复制链接</button>' +
+      '<span style="display:block;margin-top:0.25rem;font-size:0.7rem;opacity:0.9">若下方显示「同步失败」，请到 Firebase 控制台 → Firestore Database → 规则，为 rooms 添加 allow read, write: if true;</span>';
     var btn = document.getElementById('copySyncLink');
     if (btn) btn.onclick = function() {
       navigator.clipboard.writeText(fullUrl).then(function() { this.textContent = '已复制'; setTimeout(function() { this.textContent = '复制链接'; }.bind(this), 2000); }.bind(this)).catch(function() { prompt('请手动复制下方链接到手机打开：', fullUrl); });
@@ -346,11 +363,13 @@
       var roomId = getRoomId();
       location.hash = roomId;
       showSyncLinkUI();
+      setSyncStatus('连接中…');
       window.firebaseDb.collection('rooms').doc(roomId).get().then(function(snap) {
         if (snap.exists && snap.data()) loadFromCloud(snap.data());
-        else scheduleCloudSave();
+        else { scheduleCloudSave(); setSyncStatus('已连接'); }
       }).catch(function(err) {
-        if (err && String(err.message || '').indexOf('permission') !== -1 && !window._syncRuleHint) { window._syncRuleHint = 1; alert('同步失败：Firestore 权限被拒。请到 Firebase 控制台 → Firestore Database → 规则，添加：\n\nmatch /rooms/{roomId} { allow read, write: if true; }\n\n然后点发布。'); }
+        if (isPermissionError(err) && !window._syncRuleHint) { window._syncRuleHint = 1; setSyncStatus('同步失败：请设置 Firestore 规则', true); alert('同步失败：Firestore 权限被拒。请到 Firebase 控制台 → Firestore Database → 规则，添加：\n\nmatch /rooms/{roomId} { allow read, write: if true; }\n\n然后点发布。'); }
+        else { setSyncStatus('同步失败：' + ((err && err.message) || '请检查网络'), true); }
         scheduleCloudSave();
       });
       window.firebaseDb.collection('rooms').doc(roomId).onSnapshot(function(snap) {
@@ -358,7 +377,8 @@
         var d = snap.data();
         if (d && d.data) loadFromCloud(d);
       }, function(err) {
-        if (err && String(err.message || '').indexOf('permission') !== -1 && !window._syncRuleHint) { window._syncRuleHint = 1; alert('同步失败：请到 Firebase 控制台 → Firestore → 规则，允许 rooms 读写。'); }
+        if (isPermissionError(err) && !window._syncRuleHint) { window._syncRuleHint = 1; setSyncStatus('同步失败：请设置 Firestore 规则', true); alert('同步失败：请到 Firebase 控制台 → Firestore → 规则，允许 rooms 读写。'); }
+        else if (err) { setSyncStatus('同步失败：' + (err.message || err.code || '未知错误'), true); }
       });
       window.planCloudSave = scheduleCloudSave;
     } catch (e) {}
