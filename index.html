@@ -300,7 +300,9 @@
       var roomId = getRoomId();
       var data = {};
       DATA_KEYS.forEach(function(k) { try { var s = localStorage.getItem(k); if (s != null) data[k] = JSON.parse(s); } catch(e) {} });
-      window.firebaseDb.collection('rooms').doc(roomId).set({ data: data, updatedAt: new Date().toISOString() }).catch(function() {});
+      window.firebaseDb.collection('rooms').doc(roomId).set({ data: data, updatedAt: new Date().toISOString() }).catch(function(err) {
+        if (err && String(err.message || '').indexOf('permission') !== -1 && !window._syncRuleHint) { window._syncRuleHint = 1; alert('同步失败：Firestore 权限被拒。请到 Firebase 控制台 → Firestore Database → 规则，添加：\n\nmatch /rooms/{roomId} { allow read, write: if true; }\n\n然后点发布。'); }
+      });
     }, 1500);
   }
   function getRoomId() {
@@ -318,25 +320,45 @@
     DATA_KEYS.forEach(function(k) { if (data.data[k] !== undefined) _saveLocal(k, data.data[k]); });
     fullRefresh();
   }
+  function showSyncLinkUI() {
+    var syncEl = document.getElementById('syncLinkWrap');
+    if (!syncEl || !window.FIREBASE_CONFIG || !window.FIREBASE_CONFIG.projectId) return;
+    var roomId = getRoomId();
+    location.hash = roomId;
+    var fullUrl = location.href;
+    syncEl.style.display = 'block';
+    syncEl.innerHTML = '<strong style="display:block;margin-bottom:0.25rem">手机/电脑必须用下面完整链接（含 # 后面）打开才能同步。</strong>' +
+      '<a href="' + fullUrl + '" style="color:#ffeb3b;word-break:break-all">' + fullUrl + '</a> ' +
+      '<button type="button" id="copySyncLink" class="btn btn-sm" style="margin-left:0.5rem;background:rgba(255,255,255,0.25);color:#fff;border:none;cursor:pointer">复制链接</button>';
+    var btn = document.getElementById('copySyncLink');
+    if (btn) btn.onclick = function() {
+      navigator.clipboard.writeText(fullUrl).then(function() { this.textContent = '已复制'; setTimeout(function() { this.textContent = '复制链接'; }.bind(this), 2000); }.bind(this)).catch(function() { prompt('请手动复制下方链接到手机打开：', fullUrl); });
+    };
+  }
   function initCloudSync() {
     var cfg = window.FIREBASE_CONFIG;
     if (!cfg || !cfg.projectId) return;
+    showSyncLinkUI();
     try {
       if (!window.firebase || !window.firebase.initializeApp) return;
-      window.firebase.initializeApp(cfg);
+      try { window.firebase.initializeApp(cfg); } catch (e) { if (!String(e.code || '').match(/already-exists/)) throw e; }
       window.firebaseDb = window.firebase.firestore();
       var roomId = getRoomId();
       location.hash = roomId;
-      var syncEl = document.getElementById('syncLinkWrap');
-      if (syncEl) { syncEl.style.display = 'block'; syncEl.innerHTML = '手机/电脑打开此链接即自动同步：<br/><a href="' + location.href + '" style="color:#ffeb3b;word-break:break-all">' + location.href + '</a>'; }
+      showSyncLinkUI();
       window.firebaseDb.collection('rooms').doc(roomId).get().then(function(snap) {
         if (snap.exists && snap.data()) loadFromCloud(snap.data());
         else scheduleCloudSave();
-      }).catch(function() { scheduleCloudSave(); });
+      }).catch(function(err) {
+        if (err && String(err.message || '').indexOf('permission') !== -1 && !window._syncRuleHint) { window._syncRuleHint = 1; alert('同步失败：Firestore 权限被拒。请到 Firebase 控制台 → Firestore Database → 规则，添加：\n\nmatch /rooms/{roomId} { allow read, write: if true; }\n\n然后点发布。'); }
+        scheduleCloudSave();
+      });
       window.firebaseDb.collection('rooms').doc(roomId).onSnapshot(function(snap) {
         if (!snap.exists()) return;
         var d = snap.data();
         if (d && d.data) loadFromCloud(d);
+      }, function(err) {
+        if (err && String(err.message || '').indexOf('permission') !== -1 && !window._syncRuleHint) { window._syncRuleHint = 1; alert('同步失败：请到 Firebase 控制台 → Firestore → 规则，允许 rooms 读写。'); }
       });
       window.planCloudSave = scheduleCloudSave;
     } catch (e) {}
